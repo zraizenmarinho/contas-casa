@@ -23,6 +23,20 @@ function SunIcon() {
   );
 }
 
+function getRecorrentesFaltando(prev, targetMes) {
+  const passados = prev.filter(c => c.recorrente && c.mesRef < targetMes);
+  if (passados.length === 0) return [];
+  const mapa = new Map();
+  for (const c of passados) {
+    const chave = c.nome + '|' + c.categoria;
+    if (!mapa.has(chave) || c.mesRef > mapa.get(chave).mesRef) mapa.set(chave, c);
+  }
+  const existentes = new Set(
+    prev.filter(c => c.mesRef === targetMes && c.recorrente).map(c => c.nome + '|' + c.categoria)
+  );
+  return [...mapa.values()].filter(c => !existentes.has(c.nome + '|' + c.categoria));
+}
+
 function App() {
   const [contas, setContas]   = useState(() => window.loadData());
   const [mesRef, setMesRef]   = useState(() => window.todayMes());
@@ -69,21 +83,32 @@ function App() {
   // Auto-replicar recorrentes ao navegar para um novo mês
   useEffect(() => {
     setContas(prev => {
-      const jaTemRecorrentes = prev.some(c => c.mesRef === mesRef && c.recorrente);
-      if (jaTemRecorrentes) return prev;
-
-      const mesesAnteriores = [...new Set(
-        prev.filter(c => c.recorrente && c.mesRef < mesRef).map(c => c.mesRef)
-      )].sort().reverse();
-
-      if (mesesAnteriores.length === 0) return prev;
-
-      const recorrentes = prev.filter(c => c.mesRef === mesesAnteriores[0] && c.recorrente);
-      const novas = recorrentes.map(c => ({ ...c, id: window.genId(), mesRef, status: 'pendente' }));
+      const faltando = getRecorrentesFaltando(prev, mesRef);
+      if (faltando.length === 0) return prev;
+      const novas = faltando.map(c => ({ ...c, id: window.genId(), mesRef, status: 'pendente' }));
       if (window.firebaseSync.getCodigo()) window.firebaseSync.saveBatch(novas);
       return [...prev, ...novas];
     });
   }, [mesRef]);
+
+  // Backfill: corrige meses existentes que estejam com recorrentes faltando
+  useEffect(() => {
+    setContas(prev => {
+      const meses = [...new Set(prev.map(c => c.mesRef))].sort();
+      let next = prev;
+      const todasNovas = [];
+      for (const mes of meses) {
+        const faltando = getRecorrentesFaltando(next, mes);
+        if (faltando.length > 0) {
+          const novas = faltando.map(c => ({ ...c, id: window.genId(), mesRef: mes, status: 'pendente' }));
+          todasNovas.push(...novas);
+          next = [...next, ...novas];
+        }
+      }
+      if (todasNovas.length > 0 && window.firebaseSync.getCodigo()) window.firebaseSync.saveBatch(todasNovas);
+      return next;
+    });
+  }, []);
 
   const handleSave = useCallback((conta, autoGerar) => {
     setContas(prev => {
