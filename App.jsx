@@ -125,6 +125,12 @@ function App() {
     if (window.firebaseSync.getCodigo()) window.firebaseSync.deleteConta(id);
   }, []);
 
+  const handleDeleteMany = useCallback((ids) => {
+    const set = new Set(ids);
+    setContas(prev => prev.filter(c => !set.has(c.id)));
+    if (window.firebaseSync.getCodigo()) window.firebaseSync.deleteContas(ids);
+  }, []);
+
   const handleStatusChange = useCallback((id, novoStatus) => {
     setContas(prev => {
       const updated = prev.map(c => c.id === id ? { ...c, status: novoStatus } : c);
@@ -276,7 +282,7 @@ function App() {
       {/* ── Content ── */}
       <main style={{ maxWidth: '1100px', margin: '0 auto', padding: '28px 32px' }}>
         {aba === 'dashboard'  && <DashboardView  contas={contas} mesRef={mesRef} onAddConta={() => setModal({ mode: 'add' })} onStatusChange={handleStatusChange} />}
-        {aba === 'lista'      && <ListaView       contas={contas} mesRef={mesRef} onAdd={() => setModal({ mode: 'add' })} onEdit={c => setModal({ mode: 'edit', conta: c })} onDelete={handleDelete} onStatusChange={handleStatusChange} onDuplicarMes={handleDuplicarMes} />}
+        {aba === 'lista'      && <ListaView       contas={contas} mesRef={mesRef} onAdd={() => setModal({ mode: 'add' })} onEdit={c => setModal({ mode: 'edit', conta: c })} onDelete={handleDelete} onDeleteMany={handleDeleteMany} onStatusChange={handleStatusChange} onDuplicarMes={handleDuplicarMes} />}
         {aba === 'calendario' && <CalendarioView  contas={contas} mesRef={mesRef} onEdit={c => setModal({ mode: 'edit', conta: c })} onStatusChange={handleStatusChange} />}
         {aba === 'historico'  && <HistoricoView   contas={contas} mesRef={mesRef} />}
       </main>

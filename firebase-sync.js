@@ -66,9 +66,9 @@ const FIREBASE_CONFIG = {
         // Carrega Firebase via CDN (modular v10)
         if (!window._firebaseLoaded) {
           const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js');
-          const { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch } =
+          const { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs } =
             await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
-          window._firebase = { initializeApp, getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch };
+          window._firebase = { initializeApp, getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs };
           window._firebaseLoaded = true;
         }
         const fb = window._firebase;
@@ -118,14 +118,22 @@ const FIREBASE_CONFIG = {
       await batch.commit();
     },
 
-    async clearAllContas(contasAtuais) {
+    async clearAllContas() {
+      if (!db) return;
+      const codigo = this.getCodigo();
+      const fb = window._firebase;
+      const snap = await fb.getDocs(fb.collection(db, 'familias', codigo, 'contas'));
+      const batch = fb.writeBatch(db);
+      snap.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    },
+
+    async deleteContas(ids) {
       if (!db) return;
       const codigo = this.getCodigo();
       const fb = window._firebase;
       const batch = fb.writeBatch(db);
-      contasAtuais.forEach(c => {
-        batch.delete(fb.doc(db, 'familias', codigo, 'contas', c.id));
-      });
+      ids.forEach(id => batch.delete(fb.doc(db, 'familias', codigo, 'contas', id)));
       await batch.commit();
     },
   };
