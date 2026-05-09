@@ -28,6 +28,77 @@ function DonutChart({ segments, size = 168 }) {
   );
 }
 
+const MESES_CURTO = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+function BarChartAnual({ contas, mesRef }) {
+  const ano = mesRef.slice(0, 4);
+  const hoje = window.todayMes();
+
+  const dados = useMemo(() => Array.from({ length: 12 }, (_, i) => {
+    const key = `${ano}-${String(i + 1).padStart(2, '0')}`;
+    const total = contas.filter(c => c.mesRef === key).reduce((s, c) => s + c.valor, 0);
+    return { key, total, label: MESES_CURTO[i] };
+  }), [contas, ano]);
+
+  const maxVal = Math.max(...dados.map(d => d.total), 1);
+  const W = 900, H = 210;
+  const pL = 58, pR = 12, pT = 28, pB = 34;
+  const cW = W - pL - pR, cH = H - pT - pB;
+  const slot = cW / 12;
+  const barW = slot * 0.52;
+
+  const fmtK = v => v === 0 ? '' : v >= 1000 ? `R$${(v / 1000).toFixed(1)}k` : `R$${v}`;
+  const ticks = [0, 0.25, 0.5, 0.75, 1];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+      {ticks.map((f, i) => {
+        const val = Math.round(maxVal * f);
+        const y = pT + cH - f * cH;
+        return (
+          <g key={i}>
+            <line x1={pL} x2={W - pR} y1={y} y2={y}
+              stroke="var(--border)" strokeWidth={f === 0 ? 1.5 : 0.6}
+              strokeDasharray={f === 0 ? '' : '4 3'} />
+            <text x={pL - 6} y={y + 4} textAnchor="end" fontSize={10} fill="var(--text-muted)">{fmtK(val)}</text>
+          </g>
+        );
+      })}
+
+      {dados.map((d, i) => {
+        const cx = pL + i * slot + slot / 2;
+        const bh = d.total > 0 ? Math.max((d.total / maxVal) * cH, 6) : 0;
+        const by = pT + cH - bh;
+        const isCur = d.key === mesRef;
+        const isFut = d.key > hoje;
+        const fill = isCur ? 'var(--accent)' : isFut ? 'var(--subtle)' : d.total > 0 ? 'var(--accent-lt)' : 'var(--subtle)';
+        const stroke = isCur ? 'var(--accent)' : d.total > 0 && !isFut ? 'var(--accent)' : 'var(--border)';
+
+        return (
+          <g key={d.key}>
+            {bh > 0 && (
+              <rect x={cx - barW / 2} y={by} width={barW} height={bh} rx={5}
+                fill={fill} stroke={stroke} strokeWidth={isCur ? 0 : 0.8} strokeOpacity={0.3} />
+            )}
+            {d.total > 0 && (
+              <text x={cx} y={by - 5} textAnchor="middle" fontSize={9}
+                fill={isCur ? 'var(--accent)' : 'var(--text-muted)'}
+                fontWeight={isCur ? 700 : 500}>
+                {fmtK(d.total)}
+              </text>
+            )}
+            <text x={cx} y={pT + cH + 18} textAnchor="middle" fontSize={11}
+              fill={isCur ? 'var(--accent)' : 'var(--text-muted)'}
+              fontWeight={isCur ? 700 : 400}>
+              {d.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 function DashboardView({ contas, mesRef, onAddConta, onStatusChange }) {
   const contasMes = useMemo(() => contas.filter(c => c.mesRef === mesRef), [contas, mesRef]);
 
@@ -92,7 +163,7 @@ function DashboardView({ contas, mesRef, onAddConta, onStatusChange }) {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px', alignItems: 'start' }}>
         {/* Donut */}
         <div style={card}>
           <p style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>Por categoria</p>
@@ -141,6 +212,14 @@ function DashboardView({ contas, mesRef, onAddConta, onStatusChange }) {
             );
           })}
         </div>
+      </div>
+
+      {/* Gráfico anual */}
+      <div style={{ ...card }}>
+        <p style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
+          Gastos por mês — {mesRef.slice(0, 4)}
+        </p>
+        <BarChartAnual contas={contas} mesRef={mesRef} />
       </div>
     </div>
   );
