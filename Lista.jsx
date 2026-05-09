@@ -36,7 +36,8 @@ function ListaView({ contas, mesRef, onAdd, onEdit, onDelete, onStatusChange, on
     }}>{label}</button>
   );
 
-  const hasMesAnterior = contas.some(c => c.mesRef === window.prevMes(mesRef));
+  const hasMesAnterior = contas.some(c => c.recorrente && c.mesRef < mesRef);
+  const jaTemRecorrentes = contasMes.some(c => c.recorrente);
 
   return (
     <div>
@@ -49,7 +50,7 @@ function ListaView({ contas, mesRef, onAdd, onEdit, onDelete, onStatusChange, on
           {pill('Atrasado', filtroStatus === 'atrasado', () => setFiltroStatus('atrasado'), '#D94F3D')}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          {hasMesAnterior && contasMes.length === 0 && (
+          {hasMesAnterior && !jaTemRecorrentes && (
             <button onClick={onDuplicarMes} style={{
               padding: '8px 14px', borderRadius: '8px', border: '1.5px solid var(--accent)',
               background: 'var(--accent-lt)', color: 'var(--accent)', cursor: 'pointer',

@@ -66,6 +66,25 @@ function App() {
   // Persist localmente sempre
   useEffect(() => { window.saveData(contas); }, [contas]);
 
+  // Auto-replicar recorrentes ao navegar para um novo mês
+  useEffect(() => {
+    setContas(prev => {
+      const jaTemRecorrentes = prev.some(c => c.mesRef === mesRef && c.recorrente);
+      if (jaTemRecorrentes) return prev;
+
+      const mesesAnteriores = [...new Set(
+        prev.filter(c => c.recorrente && c.mesRef < mesRef).map(c => c.mesRef)
+      )].sort().reverse();
+
+      if (mesesAnteriores.length === 0) return prev;
+
+      const recorrentes = prev.filter(c => c.mesRef === mesesAnteriores[0] && c.recorrente);
+      const novas = recorrentes.map(c => ({ ...c, id: window.genId(), mesRef, status: 'pendente' }));
+      if (window.firebaseSync.getCodigo()) window.firebaseSync.saveBatch(novas);
+      return [...prev, ...novas];
+    });
+  }, [mesRef]);
+
   const handleSave = useCallback((conta, autoGerar) => {
     setContas(prev => {
       const idx = prev.findIndex(c => c.id === conta.id);
