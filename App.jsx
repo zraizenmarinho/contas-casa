@@ -134,6 +134,15 @@ function App() {
     });
   }, []);
 
+  const handleResetData = useCallback(async () => {
+    if (window.firebaseSync.getCodigo()) {
+      await window.firebaseSync.clearAllContas(contas);
+    }
+    localStorage.removeItem('mv_residencia_v1');
+    localStorage.removeItem('mv_residencia_v2');
+    location.reload();
+  }, [contas]);
+
   const handleDuplicarMes = useCallback(() => {
     const anterior = window.prevMes(mesRef);
     const recorrentes = contas.filter(c => c.mesRef === anterior && c.recorrente);
@@ -276,7 +285,7 @@ function App() {
         <AddEditModal conta={modal.conta} mesRef={mesRef} onSave={handleSave} onClose={() => setModal(null)} />
       )}
       {showFamilia && (
-        <FamiliaSetup onConnect={async () => { await conectarFirebase(); return true; }} />
+        <FamiliaSetup onConnect={async () => { await conectarFirebase(); return true; }} onReset={handleResetData} />
       )}
     </div>
   );

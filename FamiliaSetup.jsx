@@ -1,9 +1,10 @@
-const { useState: useStateFam, useEffect: useEffectFam } = React;
+const { useState: useStateFam } = React;
 
-function FamiliaSetup({ onConnect }) {
+function FamiliaSetup({ onConnect, onReset }) {
   const [codigo, setCodigo] = useStateFam(window.firebaseSync.getCodigo());
   const [erro, setErro] = useStateFam('');
   const [loading, setLoading] = useStateFam(false);
+  const [confirmReset, setConfirmReset] = useStateFam(false);
 
   const handleConnect = async () => {
     if (!codigo.trim()) { setErro('Informe um código'); return; }
@@ -90,6 +91,34 @@ function FamiliaSetup({ onConnect }) {
                 fontSize:'14px', fontWeight:700, fontFamily:'inherit', opacity: loading ? 0.6 : 1,
               }}>{loading ? 'Conectando...' : 'Conectar'}</button>
             </>
+          )}
+        </div>
+
+        {/* Zona de perigo */}
+        <div style={{ marginTop:'20px', paddingTop:'16px', borderTop:'1px solid var(--border)' }}>
+          {!confirmReset ? (
+            <button onClick={() => setConfirmReset(true)} style={{
+              width:'100%', padding:'10px', border:'1px solid var(--border)', borderRadius:'8px',
+              background:'transparent', color:'var(--text-muted)', cursor:'pointer',
+              fontSize:'13px', fontWeight:500, fontFamily:'inherit',
+            }}>Zerar todos os dados</button>
+          ) : (
+            <div style={{ background:'#FEF0EF', borderRadius:'8px', padding:'12px', border:'1px solid #D94F3D22' }}>
+              <p style={{ margin:'0 0 10px', fontSize:'13px', color:'#D94F3D', fontWeight:600 }}>
+                Isso apaga TODOS os lançamentos local e do Firebase. Confirma?
+              </p>
+              <div style={{ display:'flex', gap:'8px' }}>
+                <button onClick={() => setConfirmReset(false)} style={{
+                  flex:1, padding:'8px', border:'1px solid var(--border)', borderRadius:'7px',
+                  background:'var(--surface)', cursor:'pointer', fontSize:'13px', fontFamily:'inherit',
+                }}>Cancelar</button>
+                <button onClick={onReset} style={{
+                  flex:1, padding:'8px', border:'none', borderRadius:'7px',
+                  background:'#D94F3D', color:'#FFF', cursor:'pointer',
+                  fontSize:'13px', fontWeight:700, fontFamily:'inherit',
+                }}>Sim, apagar tudo</button>
+              </div>
+            </div>
           )}
         </div>
       </div>
