@@ -117,5 +117,16 @@ const FIREBASE_CONFIG = {
       });
       await batch.commit();
     },
+
+    async clearAllContas(contasAtuais) {
+      if (!db) return;
+      const codigo = this.getCodigo();
+      const fb = window._firebase;
+      const batch = fb.writeBatch(db);
+      contasAtuais.forEach(c => {
+        batch.delete(fb.doc(db, 'familias', codigo, 'contas', c.id));
+      });
+      await batch.commit();
+    },
   };
 })();

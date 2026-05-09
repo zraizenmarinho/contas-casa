@@ -23,19 +23,6 @@ function SunIcon() {
   );
 }
 
-function getRecorrentesFaltando(prev, targetMes) {
-  const passados = prev.filter(c => c.recorrente && c.mesRef < targetMes);
-  if (passados.length === 0) return [];
-  const mapa = new Map();
-  for (const c of passados) {
-    const chave = c.nome + '|' + c.categoria;
-    if (!mapa.has(chave) || c.mesRef > mapa.get(chave).mesRef) mapa.set(chave, c);
-  }
-  const existentes = new Set(
-    prev.filter(c => c.mesRef === targetMes && c.recorrente).map(c => c.nome + '|' + c.categoria)
-  );
-  return [...mapa.values()].filter(c => !existentes.has(c.nome + '|' + c.categoria));
-}
 
 function App() {
   const [contas, setContas]   = useState(() => window.loadData());
@@ -80,35 +67,18 @@ function App() {
   // Persist localmente sempre
   useEffect(() => { window.saveData(contas); }, [contas]);
 
-  // Auto-replicar recorrentes ao navegar para um novo mês
+  // Replica recorrentes do mês anterior apenas quando o mês está vazio
   useEffect(() => {
     setContas(prev => {
-      const faltando = getRecorrentesFaltando(prev, mesRef);
-      if (faltando.length === 0) return prev;
-      const novas = faltando.map(c => ({ ...c, id: window.genId(), mesRef, status: 'pendente' }));
+      if (prev.some(c => c.mesRef === mesRef)) return prev;
+      const anterior = window.prevMes(mesRef);
+      const recorrentes = prev.filter(c => c.mesRef === anterior && c.recorrente);
+      if (recorrentes.length === 0) return prev;
+      const novas = recorrentes.map(c => ({ ...c, id: window.genId(), mesRef, status: 'pendente' }));
       if (window.firebaseSync.getCodigo()) window.firebaseSync.saveBatch(novas);
       return [...prev, ...novas];
     });
   }, [mesRef]);
-
-  // Backfill: corrige meses existentes que estejam com recorrentes faltando
-  useEffect(() => {
-    setContas(prev => {
-      const meses = [...new Set(prev.map(c => c.mesRef))].sort();
-      let next = prev;
-      const todasNovas = [];
-      for (const mes of meses) {
-        const faltando = getRecorrentesFaltando(next, mes);
-        if (faltando.length > 0) {
-          const novas = faltando.map(c => ({ ...c, id: window.genId(), mesRef: mes, status: 'pendente' }));
-          todasNovas.push(...novas);
-          next = [...next, ...novas];
-        }
-      }
-      if (todasNovas.length > 0 && window.firebaseSync.getCodigo()) window.firebaseSync.saveBatch(todasNovas);
-      return next;
-    });
-  }, []);
 
   const handleSave = useCallback((conta, autoGerar) => {
     setContas(prev => {
@@ -128,6 +98,22 @@ function App() {
           novas.push(nova);
         }
       }
+
+      // Nova conta recorrente: replica para meses futuros que já têm dados
+      if (conta.recorrente && idx < 0) {
+        const mesesFuturos = [...new Set(
+          next.filter(c => c.mesRef > conta.mesRef).map(c => c.mesRef)
+        )].sort();
+        for (const mes of mesesFuturos) {
+          const jaExiste = next.some(c => c.mesRef === mes && c.nome === conta.nome && c.categoria === conta.categoria);
+          if (!jaExiste) {
+            const nova = { ...conta, id: window.genId(), mesRef: mes, status: 'pendente' };
+            next = [...next, nova];
+            novas.push(nova);
+          }
+        }
+      }
+
       if (window.firebaseSync.getCodigo()) window.firebaseSync.saveBatch(novas);
       return next;
     });
