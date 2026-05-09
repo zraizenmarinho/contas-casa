@@ -40,54 +40,108 @@ function BarChartAnual({ contas, mesRef }) {
     return { key, total, label: MESES_CURTO[i] };
   }), [contas, ano]);
 
-  const maxVal = Math.max(...dados.map(d => d.total), 1);
-  const W = 900, H = 210;
-  const pL = 58, pR = 12, pT = 28, pB = 34;
+  const comDados = dados.filter(d => d.total > 0 && d.key <= hoje);
+  const media = comDados.length > 0 ? comDados.reduce((s, d) => s + d.total, 0) / comDados.length : 0;
+  const maxVal = Math.max(...dados.map(d => d.total), media, 1);
+
+  const W = 900, H = 230;
+  const pL = 62, pR = 16, pT = 38, pB = 36;
   const cW = W - pL - pR, cH = H - pT - pB;
   const slot = cW / 12;
-  const barW = slot * 0.52;
+  const barW = slot * 0.5;
 
-  const fmtK = v => v === 0 ? '' : v >= 1000 ? `R$${(v / 1000).toFixed(1)}k` : `R$${v}`;
+  const fmtK = v => v >= 1000 ? `R$${(v / 1000).toFixed(1)}k` : `R$${Math.round(v)}`;
   const ticks = [0, 0.25, 0.5, 0.75, 1];
+  const mediaY = media > 0 ? pT + cH - (media / maxVal) * cH : null;
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+      <defs>
+        <linearGradient id="bca-cur" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" style={{ stopColor: 'var(--accent)', stopOpacity: 1 }} />
+          <stop offset="100%" style={{ stopColor: 'var(--accent)', stopOpacity: 0.65 }} />
+        </linearGradient>
+        <linearGradient id="bca-past" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" style={{ stopColor: 'var(--accent)', stopOpacity: 0.28 }} />
+          <stop offset="100%" style={{ stopColor: 'var(--accent)', stopOpacity: 0.06 }} />
+        </linearGradient>
+      </defs>
+
+      {/* Grid lines + Y labels */}
       {ticks.map((f, i) => {
         const val = Math.round(maxVal * f);
         const y = pT + cH - f * cH;
         return (
           <g key={i}>
             <line x1={pL} x2={W - pR} y1={y} y2={y}
-              stroke="var(--border)" strokeWidth={f === 0 ? 1.5 : 0.6}
-              strokeDasharray={f === 0 ? '' : '4 3'} />
-            <text x={pL - 6} y={y + 4} textAnchor="end" fontSize={10} fill="var(--text-muted)">{fmtK(val)}</text>
+              stroke="var(--border)"
+              strokeWidth={f === 0 ? 1.5 : 0.5}
+              strokeDasharray={f === 0 ? '' : '5 4'} />
+            <text x={pL - 8} y={y + 4} textAnchor="end" fontSize={10} fill="var(--text-muted)">
+              {f === 0 ? '' : fmtK(val)}
+            </text>
           </g>
         );
       })}
 
+      {/* Média line */}
+      {mediaY && (
+        <g>
+          <line x1={pL} x2={W - pR - 80} y1={mediaY} y2={mediaY}
+            stroke="#D4900A" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.65} />
+          <rect x={W - pR - 78} y={mediaY - 10} width={76} height={18} rx={5} fill="#FEF7E8" />
+          <text x={W - pR - 40} y={mediaY + 4} textAnchor="middle" fontSize={9.5} fill="#D4900A" fontWeight={600}>
+            {`Média ${fmtK(media)}`}
+          </text>
+        </g>
+      )}
+
+      {/* Bars */}
       {dados.map((d, i) => {
         const cx = pL + i * slot + slot / 2;
         const bh = d.total > 0 ? Math.max((d.total / maxVal) * cH, 6) : 0;
         const by = pT + cH - bh;
         const isCur = d.key === mesRef;
         const isFut = d.key > hoje;
-        const fill = isCur ? 'var(--accent)' : isFut ? 'var(--subtle)' : d.total > 0 ? 'var(--accent-lt)' : 'var(--subtle)';
-        const stroke = isCur ? 'var(--accent)' : d.total > 0 && !isFut ? 'var(--accent)' : 'var(--border)';
+        const hasDados = d.total > 0;
 
         return (
           <g key={d.key}>
-            {bh > 0 && (
-              <rect x={cx - barW / 2} y={by} width={barW} height={bh} rx={5}
-                fill={fill} stroke={stroke} strokeWidth={isCur ? 0 : 0.8} strokeOpacity={0.3} />
+            {/* Bar body */}
+            {isCur && hasDados && (
+              <rect x={cx - barW / 2} y={by} width={barW} height={bh} rx={6} fill="url(#bca-cur)" />
             )}
-            {d.total > 0 && (
-              <text x={cx} y={by - 5} textAnchor="middle" fontSize={9}
-                fill={isCur ? 'var(--accent)' : 'var(--text-muted)'}
-                fontWeight={isCur ? 700 : 500}>
+            {!isCur && !isFut && hasDados && (
+              <rect x={cx - barW / 2} y={by} width={barW} height={bh} rx={6}
+                fill="url(#bca-past)"
+                stroke="var(--accent)" strokeWidth={1} strokeOpacity={0.2} />
+            )}
+            {isFut && hasDados && (
+              <rect x={cx - barW / 2} y={by} width={barW} height={bh} rx={6}
+                fill="var(--subtle)"
+                stroke="var(--border)" strokeWidth={1.2} strokeDasharray="4 3" />
+            )}
+            {!hasDados && (
+              <rect x={cx - barW / 2} y={pT + cH - 3} width={barW} height={3} rx={2} fill="var(--border)" />
+            )}
+
+            {/* Value label */}
+            {hasDados && isCur && (
+              <g>
+                <rect x={cx - 24} y={by - 22} width={48} height={17} rx={5} fill="var(--accent)" />
+                <text x={cx} y={by - 10} textAnchor="middle" fontSize={9.5} fill="#fff" fontWeight={700}>
+                  {fmtK(d.total)}
+                </text>
+              </g>
+            )}
+            {hasDados && !isCur && (
+              <text x={cx} y={by - 6} textAnchor="middle" fontSize={9} fill={isFut ? 'var(--text-muted)' : 'var(--text-muted)'} fontWeight={500}>
                 {fmtK(d.total)}
               </text>
             )}
-            <text x={cx} y={pT + cH + 18} textAnchor="middle" fontSize={11}
+
+            {/* X label */}
+            <text x={cx} y={pT + cH + 20} textAnchor="middle" fontSize={11}
               fill={isCur ? 'var(--accent)' : 'var(--text-muted)'}
               fontWeight={isCur ? 700 : 400}>
               {d.label}
@@ -216,10 +270,33 @@ function DashboardView({ contas, mesRef, onAddConta, onStatusChange }) {
 
       {/* Gráfico anual */}
       <div style={{ ...card }}>
-        <p style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
+        <p style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
           Gastos por mês — {mesRef.slice(0, 4)}
         </p>
         <BarChartAnual contas={contas} mesRef={mesRef} />
+        <div style={{ display: 'flex', gap: '18px', marginTop: '4px', paddingLeft: '58px' }}>
+          {[
+            { fill: 'var(--accent)', label: 'Mês selecionado' },
+            { fill: 'var(--accent-lt)', border: 'var(--accent)', label: 'Realizado' },
+            { fill: 'var(--subtle)', border: 'var(--border)', dash: true, label: 'Projetado' },
+            { fill: 'none', lineColor: '#D4900A', label: 'Média' },
+          ].map(({ fill, border, dash, lineColor, label }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {lineColor ? (
+                <svg width="22" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke={lineColor} strokeWidth="1.5" strokeDasharray="5 3" /></svg>
+              ) : (
+                <div style={{
+                  width: '12px', height: '12px', borderRadius: '3px',
+                  background: fill,
+                  border: border ? `1px solid ${border}` : 'none',
+                  borderStyle: dash ? 'dashed' : 'solid',
+                  opacity: fill === 'var(--accent-lt)' ? 1 : 1,
+                }} />
+              )}
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
