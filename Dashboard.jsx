@@ -40,9 +40,7 @@ function BarChartAnual({ contas, mesRef }) {
     return { key, total, label: MESES_CURTO[i] };
   }), [contas, ano]);
 
-  const comDados = dados.filter(d => d.total > 0 && d.key <= hoje);
-  const media = comDados.length > 0 ? comDados.reduce((s, d) => s + d.total, 0) / comDados.length : 0;
-  const maxVal = Math.max(...dados.map(d => d.total), media, 1);
+  const maxVal = Math.max(...dados.map(d => d.total), 1);
 
   const W = 900, H = 230;
   const pL = 62, pR = 16, pT = 38, pB = 36;
@@ -52,7 +50,6 @@ function BarChartAnual({ contas, mesRef }) {
 
   const fmtK = v => v >= 1000 ? `R$${(v / 1000).toFixed(1)}k` : `R$${Math.round(v)}`;
   const ticks = [0, 0.25, 0.5, 0.75, 1];
-  const mediaY = media > 0 ? pT + cH - (media / maxVal) * cH : null;
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
@@ -84,25 +81,13 @@ function BarChartAnual({ contas, mesRef }) {
         );
       })}
 
-      {/* Média line */}
-      {mediaY && (
-        <g>
-          <line x1={pL} x2={W - pR - 80} y1={mediaY} y2={mediaY}
-            stroke="#D4900A" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.65} />
-          <rect x={W - pR - 78} y={mediaY - 10} width={76} height={18} rx={5} fill="#FEF7E8" />
-          <text x={W - pR - 40} y={mediaY + 4} textAnchor="middle" fontSize={9.5} fill="#D4900A" fontWeight={600}>
-            {`Média ${fmtK(media)}`}
-          </text>
-        </g>
-      )}
-
       {/* Bars */}
       {dados.map((d, i) => {
         const cx = pL + i * slot + slot / 2;
         const bh = d.total > 0 ? Math.max((d.total / maxVal) * cH, 6) : 0;
         const by = pT + cH - bh;
         const isCur = d.key === mesRef;
-        const isFut = d.key > hoje;
+        const isFut = !isCur && d.key > hoje;
         const hasDados = d.total > 0;
 
         return (
@@ -111,15 +96,10 @@ function BarChartAnual({ contas, mesRef }) {
             {isCur && hasDados && (
               <rect x={cx - barW / 2} y={by} width={barW} height={bh} rx={6} fill="url(#bca-cur)" />
             )}
-            {!isCur && !isFut && hasDados && (
+            {!isCur && hasDados && (
               <rect x={cx - barW / 2} y={by} width={barW} height={bh} rx={6}
                 fill="url(#bca-past)"
                 stroke="var(--accent)" strokeWidth={1} strokeOpacity={0.2} />
-            )}
-            {isFut && hasDados && (
-              <rect x={cx - barW / 2} y={by} width={barW} height={bh} rx={6}
-                fill="var(--subtle)"
-                stroke="var(--border)" strokeWidth={1.2} strokeDasharray="4 3" />
             )}
             {!hasDados && (
               <rect x={cx - barW / 2} y={pT + cH - 3} width={barW} height={3} rx={2} fill="var(--border)" />
@@ -279,8 +259,7 @@ function DashboardView({ contas, mesRef, onAddConta, onStatusChange }) {
             { fill: 'var(--accent)', label: 'Mês selecionado' },
             { fill: 'var(--accent-lt)', border: 'var(--accent)', label: 'Realizado' },
             { fill: 'var(--subtle)', border: 'var(--border)', dash: true, label: 'Projetado' },
-            { fill: 'none', lineColor: '#D4900A', label: 'Média' },
-          ].map(({ fill, border, dash, lineColor, label }) => (
+            ].map(({ fill, border, dash, lineColor, label }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {lineColor ? (
                 <svg width="22" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke={lineColor} strokeWidth="1.5" strokeDasharray="5 3" /></svg>
