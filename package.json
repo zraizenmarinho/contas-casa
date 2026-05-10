@@ -1,0 +1,13 @@
+{
+  "name": "residencia-mv-contas",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "firebase deploy --only hosting",
+    "deploy:preview": "firebase hosting:channel:deploy preview --expires 7d",
+    "open": "firebase open hosting:site"
+  },
+  "devDependencies": {
+    "firebase-tools": "^13.0.0"
+  }
+}

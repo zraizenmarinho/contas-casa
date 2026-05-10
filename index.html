@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Residência M&V — Controle de Contas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg:         #F9F9F7;
+      --surface:    #FFFFFF;
+      --surface-2:  #F9F9F7;
+      --text:       #18181A;
+      --text-muted: #737370;
+      --border:     #E5E5E1;
+      --subtle:     #F4F4F0;
+      --input-bg:   #FAFAF8;
+      --accent:     #2D7D9A;
+      --accent-lt:  #EBF5F9;
+      --scrollbar:  #D8D8D4;
+    }
+    [data-theme="dark"] {
+      --bg:         #111113;
+      --surface:    #1C1C1F;
+      --surface-2:  #252528;
+      --text:       #F2F2F0;
+      --text-muted: #8A8A87;
+      --border:     #2E2E32;
+      --subtle:     #252528;
+      --input-bg:   #2A2A2E;
+      --accent:     #4BADD4;
+      --accent-lt:  #162430;
+      --scrollbar:  #3A3A3E;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; transition: background .25s, color .25s; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 99px; }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent) !important; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <template id="__bundler_thumbnail">
+    <svg viewBox="0 0 80 56" xmlns="http://www.w3.org/2000/svg">
+      <rect width="80" height="56" fill="#F9F9F7"/>
+      <rect x="12" y="10" width="56" height="36" rx="6" fill="#2D7D9A"/>
+      <rect x="18" y="18" width="20" height="5" rx="2" fill="#EBF5F9"/>
+      <rect x="18" y="26" width="30" height="4" rx="2" fill="#EBF5F9" opacity=".6"/>
+      <rect x="18" y="33" width="24" height="4" rx="2" fill="#EBF5F9" opacity=".4"/>
+      <circle cx="56" cy="30" r="8" fill="#2D9D6B" opacity=".85"/>
+      <path d="M53 30l2 2 4-4" stroke="#FFF" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    </svg>
+  </template>
+
+  <!-- SheetJS para exportação Excel -->
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Data layer (plain JS, defines globals on window) -->
+  <script src="storage.js?v=8"></script>
+  <script src="Export.js?v=8"></script>
+  <script src="firebase-sync.js?v=8"></script>
+
+  <!-- React components (Babel/JSX) -->
+  <script type="text/babel" src="Modal.jsx?v=8"></script>
+  <script type="text/babel" src="FamiliaSetup.jsx?v=8"></script>
+  <script type="text/babel" src="Dashboard.jsx?v=8"></script>
+  <script type="text/babel" src="Lista.jsx?v=8"></script>
+  <script type="text/babel" src="Calendario.jsx?v=8"></script>
+  <script type="text/babel" src="Historico.jsx?v=8"></script>
+  <script type="text/babel" src="App.jsx?v=8"></script>
+</body>
+</html>
