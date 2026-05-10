@@ -35,10 +35,36 @@ const FIREBASE_CONFIG = {
   let db = null;
   let unsubscribe = null;
   let onChangeCallback = null;
-  // Timestamp da última escrita local — usado para ignorar o snapshot "eco"
-  // que Firebase dispara em resposta às nossas próprias escritas
-  let lastWriteTime = 0;
-  const WRITE_DEBOUNCE_MS = 2000;
+
+  // IDs de escritas/exclusões pendentes de confirmação no Firestore.
+  // O onSnapshot "eco" (disparado pela nossa própria escrita) chega
+  // ANTES do Firestore confirmar — precisamos ignorá-lo até que todos
+  // os IDs pendentes apareçam (escrita) ou sumam (exclusão) no snapshot.
+  let pendingWriteIds  = new Set();
+  let pendingDeleteIds = new Set();
+
+  function _handleSnapshot(snap) {
+    // Monta conjunto de IDs presentes neste snapshot
+    const snapIds = new Set();
+    snap.forEach(d => snapIds.add(d.id));
+
+    // Se alguma escrita pendente ainda NÃO está no snapshot → aguarda
+    for (const id of pendingWriteIds) {
+      if (!snapIds.has(id)) return;
+    }
+    // Se alguma exclusão pendente ainda ESTÁ no snapshot → aguarda
+    for (const id of pendingDeleteIds) {
+      if (snapIds.has(id)) return;
+    }
+
+    // Todas as operações locais foram confirmadas — limpa rastreamento
+    pendingWriteIds.clear();
+    pendingDeleteIds.clear();
+
+    const contas = [];
+    snap.forEach(d => contas.push({ id: d.id, ...d.data() }));
+    if (onChangeCallback) onChangeCallback(contas);
+  }
 
   window.firebaseSync = {
     isConfigured() {
@@ -56,6 +82,8 @@ const FIREBASE_CONFIG = {
     clearCodigo() {
       localStorage.removeItem(KEY_FAM);
       if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+      pendingWriteIds.clear();
+      pendingDeleteIds.clear();
     },
 
     async init(onChange) {
@@ -68,29 +96,31 @@ const FIREBASE_CONFIG = {
 
       try {
         if (!window._firebaseLoaded) {
-          const { initializeApp, getApps, getApp } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js');
+          const { initializeApp, getApps, getApp } =
+            await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js');
           const { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs } =
             await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
           window._firebase = { initializeApp, getApps, getApp, getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs };
           window._firebaseLoaded = true;
         }
+
         const fb = window._firebase;
-        // Evita "App already exists" ao reconectar
+        // Evita erro "App already exists" ao reconectar
         const app = fb.getApps().length > 0 ? fb.getApp() : fb.initializeApp(FIREBASE_CONFIG);
         db = fb.getFirestore(app);
         onChangeCallback = onChange;
 
+        // Reseta pendentes ao reconectar
+        pendingWriteIds.clear();
+        pendingDeleteIds.clear();
+
         if (unsubscribe) { unsubscribe(); unsubscribe = null; }
 
         const colRef = fb.collection(db, 'familias', codigo, 'contas');
-        unsubscribe = fb.onSnapshot(colRef, (snap) => {
-          // Ignora snapshots que chegam logo após uma escrita nossa (snapshot "eco")
-          // para evitar que o estado local seja temporariamente sobrescrito
-          if (Date.now() - lastWriteTime < WRITE_DEBOUNCE_MS) return;
-          const contas = [];
-          snap.forEach(d => contas.push({ id: d.id, ...d.data() }));
-          if (onChangeCallback) onChangeCallback(contas);
+        unsubscribe = fb.onSnapshot(colRef, _handleSnapshot, (err) => {
+          console.error('Firestore onSnapshot error:', err);
         });
+
         return true;
       } catch (e) {
         console.error('Erro ao conectar Firebase:', e);
@@ -100,38 +130,53 @@ const FIREBASE_CONFIG = {
 
     async saveConta(conta) {
       if (!db) return;
-      lastWriteTime = Date.now();
-      const codigo = this.getCodigo();
-      const fb = window._firebase;
-      const ref = fb.doc(db, 'familias', codigo, 'contas', conta.id);
-      const { id, ...rest } = conta;
-      await fb.setDoc(ref, rest);
+      pendingWriteIds.add(conta.id);
+      try {
+        const codigo = this.getCodigo();
+        const fb = window._firebase;
+        const ref = fb.doc(db, 'familias', codigo, 'contas', conta.id);
+        const { id, ...rest } = conta;
+        await fb.setDoc(ref, rest);
+      } catch (e) {
+        pendingWriteIds.delete(conta.id);
+        throw e;
+      }
     },
 
     async deleteConta(id) {
       if (!db) return;
-      lastWriteTime = Date.now();
-      const codigo = this.getCodigo();
-      const fb = window._firebase;
-      await fb.deleteDoc(fb.doc(db, 'familias', codigo, 'contas', id));
+      pendingDeleteIds.add(id);
+      try {
+        const codigo = this.getCodigo();
+        const fb = window._firebase;
+        await fb.deleteDoc(fb.doc(db, 'familias', codigo, 'contas', id));
+      } catch (e) {
+        pendingDeleteIds.delete(id);
+        throw e;
+      }
     },
 
     async saveBatch(contas) {
       if (!db) return;
-      lastWriteTime = Date.now();
-      const codigo = this.getCodigo();
-      const fb = window._firebase;
-      const batch = fb.writeBatch(db);
-      contas.forEach(c => {
-        const { id, ...rest } = c;
-        batch.set(fb.doc(db, 'familias', codigo, 'contas', id), rest);
-      });
-      await batch.commit();
+      const ids = contas.map(c => c.id);
+      ids.forEach(id => pendingWriteIds.add(id));
+      try {
+        const codigo = this.getCodigo();
+        const fb = window._firebase;
+        const batch = fb.writeBatch(db);
+        contas.forEach(c => {
+          const { id, ...rest } = c;
+          batch.set(fb.doc(db, 'familias', codigo, 'contas', id), rest);
+        });
+        await batch.commit();
+      } catch (e) {
+        ids.forEach(id => pendingWriteIds.delete(id));
+        throw e;
+      }
     },
 
     async clearAllContas() {
       if (!db) return;
-      lastWriteTime = Date.now();
       const codigo = this.getCodigo();
       const fb = window._firebase;
       const snap = await fb.getDocs(fb.collection(db, 'familias', codigo, 'contas'));
@@ -142,12 +187,17 @@ const FIREBASE_CONFIG = {
 
     async deleteContas(ids) {
       if (!db) return;
-      lastWriteTime = Date.now();
-      const codigo = this.getCodigo();
-      const fb = window._firebase;
-      const batch = fb.writeBatch(db);
-      ids.forEach(id => batch.delete(fb.doc(db, 'familias', codigo, 'contas', id)));
-      await batch.commit();
+      ids.forEach(id => pendingDeleteIds.add(id));
+      try {
+        const codigo = this.getCodigo();
+        const fb = window._firebase;
+        const batch = fb.writeBatch(db);
+        ids.forEach(id => batch.delete(fb.doc(db, 'familias', codigo, 'contas', id)));
+        await batch.commit();
+      } catch (e) {
+        ids.forEach(id => pendingDeleteIds.delete(id));
+        throw e;
+      }
     },
   };
 })();

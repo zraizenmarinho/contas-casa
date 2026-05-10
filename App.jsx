@@ -50,7 +50,11 @@ function App() {
       setSyncStatus('online');
     });
     if (ok) {
-      // Sobe contas locais que ainda não existem em remoto (primeira vez)
+      // Marca como online imediatamente (não espera o snapshot chegar)
+      setSyncStatus('online');
+      // Sobe contas locais para o Firebase (primeira sincronização do dispositivo).
+      // O onSnapshot aguarda esses IDs aparecerem antes de sobrescrever o estado,
+      // garantindo que dados locais não sejam perdidos durante o merge inicial.
       const local = window.loadData();
       if (local.length > 0) await window.firebaseSync.saveBatch(local);
       setShowFamilia(false);
